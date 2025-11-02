@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Intelicense (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Intelicense (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
