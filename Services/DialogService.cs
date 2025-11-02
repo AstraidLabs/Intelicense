@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using Intelicense.Extensions;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -30,7 +31,7 @@ public sealed class DialogService : IDialogService
             XamlRoot = element.XamlRoot
         };
 
-        var result = await dialog.ShowAsync();
+        var result = await dialog.ShowAsync().AsTask();
         return result == ContentDialogResult.Primary;
     }
 
@@ -49,6 +50,6 @@ public sealed class DialogService : IDialogService
             XamlRoot = element.XamlRoot
         };
 
-        await dialog.ShowAsync();
+        await dialog.ShowAsync().AsTask();
     }
 }

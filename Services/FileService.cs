@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Intelicense.Extensions;
 using Microsoft.UI.Xaml;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -33,7 +34,7 @@ public sealed class FileService : IFileService
 
         picker.FileTypeChoices.Add("JSON", new List<string> { ".json" });
 
-        var file = await picker.PickSaveFileAsync();
+        var file = await picker.PickSaveFileAsync().AsTask();
         if (file is null)
         {
             return false;
