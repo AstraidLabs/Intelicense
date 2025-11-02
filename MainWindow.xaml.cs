@@ -16,6 +16,10 @@ public sealed partial class MainWindow : Window
             new DialogService(this),
             new FileService(this),
             new ClipboardService());
-        DataContext = ViewModel;
+
+        if (Content is FrameworkElement rootElement)
+        {
+            rootElement.DataContext = ViewModel;
+        }
     }
 }
