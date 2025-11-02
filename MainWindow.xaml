@@ -6,7 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    Title="WinLicenseInfo">
+    Title="Intelicense">
 
     <Grid MinWidth="720" MinHeight="600" RowDefinitions="Auto,*,Auto" Padding="16">
         <StackPanel Orientation="Horizontal" Spacing="12">
