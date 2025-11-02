@@ -35,7 +35,7 @@ public sealed class FileService : IFileService
 
         picker.FileTypeChoices.Add("JSON", new List<string> { ".json" });
 
-        var file = await picker.PickSaveFileAsync().AsTask();
+        var file = await picker.PickSaveFileAsync();
         if (file is null)
         {
             return false;
