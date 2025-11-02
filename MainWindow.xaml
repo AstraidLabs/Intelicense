@@ -8,7 +8,12 @@
     mc:Ignorable="d"
     Title="WinLicenseInfo">
 
-    <Grid MinWidth="720" MinHeight="600" RowDefinitions="Auto,*,Auto" Padding="16">
+    <Grid MinWidth="720" MinHeight="600" Padding="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
         <StackPanel Orientation="Horizontal" Spacing="12">
             <Button
                 Content="Get License Info"
@@ -29,55 +34,30 @@
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" Margin="0,16" VerticalScrollBarVisibility="Auto">
-            <Grid ColumnDefinitions="Auto,*" RowSpacing="12" ColumnSpacing="16">
-                <Grid.Resources>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="VerticalAlignment" Value="Center" />
-                    </Style>
+            <StackPanel Spacing="12">
+                <StackPanel.Resources>
                     <Style TargetType="TextBox">
                         <Setter Property="IsReadOnly" Value="True" />
                         <Setter Property="TextWrapping" Value="Wrap" />
                     </Style>
-                </Grid.Resources>
+                </StackPanel.Resources>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Product Name" />
-                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding LicenseInfo.ProductName}" />
-
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Edition ID" />
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LicenseInfo.EditionId}" />
-
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Product ID" />
-                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding LicenseInfo.ProductId}" />
-
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Current Build" />
-                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LicenseInfo.CurrentBuild}" />
-
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="Installation Type" />
-                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding LicenseInfo.InstallationType}" />
-
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="Partial Product Key" />
-                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding LicenseInfo.PartialProductKey}" />
-
-                <TextBlock Grid.Row="6" Grid.Column="0" Text="OA3 Original Product Key" />
-                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding LicenseInfo.Oa3OriginalProductKey}" />
-
-                <TextBlock Grid.Row="7" Grid.Column="0" Text="Decoded Product Key" />
-                <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding LicenseInfo.DecodedProductKey}" />
-
-                <TextBlock Grid.Row="8" Grid.Column="0" Text="Product Type Code" />
-                <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding ProductTypeDisplay}" />
-
-                <TextBlock Grid.Row="9" Grid.Column="0" Text="License Status" />
-                <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding LicenseInfo.LicenseStatus}" />
-
-                <TextBlock Grid.Row="10" Grid.Column="0" Text="Retrieval Sources" />
+                <TextBox Header="Product Name" Text="{Binding LicenseInfo.ProductName}" />
+                <TextBox Header="Edition ID" Text="{Binding LicenseInfo.EditionId}" />
+                <TextBox Header="Product ID" Text="{Binding LicenseInfo.ProductId}" />
+                <TextBox Header="Current Build" Text="{Binding LicenseInfo.CurrentBuild}" />
+                <TextBox Header="Installation Type" Text="{Binding LicenseInfo.InstallationType}" />
+                <TextBox Header="Partial Product Key" Text="{Binding LicenseInfo.PartialProductKey}" />
+                <TextBox Header="OA3 Original Product Key" Text="{Binding LicenseInfo.Oa3OriginalProductKey}" />
+                <TextBox Header="Decoded Product Key" Text="{Binding LicenseInfo.DecodedProductKey}" />
+                <TextBox Header="Product Type Code" Text="{Binding ProductTypeDisplay}" />
+                <TextBox Header="License Status" Text="{Binding LicenseInfo.LicenseStatus}" />
                 <TextBox
-                    Grid.Row="10"
-                    Grid.Column="1"
+                    Header="Retrieval Sources"
                     MinHeight="120"
                     AcceptsReturn="True"
                     Text="{Binding RetrievalSourcesDisplay}" />
-            </Grid>
+            </StackPanel>
         </ScrollViewer>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
