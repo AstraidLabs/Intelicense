@@ -170,6 +170,8 @@ public partial class MainViewModel : ObservableObject
         builder.AppendLine($"Current Build: {LicenseInfo.CurrentBuild}");
         builder.AppendLine($"Installation Type: {LicenseInfo.InstallationType}");
         builder.AppendLine($"Partial Product Key: {LicenseInfo.PartialProductKey}");
+        builder.AppendLine($"OA3 (MSDM) Key: {LicenseInfo.Oa3MsdmDisplayKey}");
+        builder.AppendLine($"OA3 (MSDM) Raw Dump (Base64): {LicenseInfo.Oa3MsdmRawDumpBase64}");
         builder.AppendLine($"OA3 Original Product Key: {LicenseInfo.Oa3OriginalProductKey}");
         builder.AppendLine($"Decoded Product Key: {LicenseInfo.DecodedProductKey}");
         builder.AppendLine($"Product Type Code: {LicenseInfo.ProductTypeCode}");

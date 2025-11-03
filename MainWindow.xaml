@@ -48,6 +48,8 @@
                 <TextBox Header="Current Build" Text="{Binding LicenseInfo.CurrentBuild}" />
                 <TextBox Header="Installation Type" Text="{Binding LicenseInfo.InstallationType}" />
                 <TextBox Header="Partial Product Key" Text="{Binding LicenseInfo.PartialProductKey}" />
+                <TextBox Header="OA3 (MSDM) Key" Text="{Binding LicenseInfo.Oa3MsdmDisplayKey}" />
+                <TextBox Header="MSDM Raw Dump (Base64)" Text="{Binding LicenseInfo.Oa3MsdmRawDumpBase64}" />
                 <TextBox Header="OA3 Original Product Key" Text="{Binding LicenseInfo.Oa3OriginalProductKey}" />
                 <TextBox Header="Decoded Product Key" Text="{Binding LicenseInfo.DecodedProductKey}" />
                 <TextBox Header="Product Type Code" Text="{Binding ProductTypeDisplay}" />
