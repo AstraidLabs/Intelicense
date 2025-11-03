@@ -43,6 +43,7 @@ public sealed class WindowsLicenseService : IWindowsLicenseService
         info.Reset();
 
         CollectCurrentVersion(info);
+        CollectFirmwareMsdm(info, includeSensitive);
         CollectSoftwareProtectionPlatform(info, includeSensitive);
         CollectSoftwareLicensingProduct(info);
         CollectSoftwareLicensingService(info);
@@ -85,6 +86,37 @@ public sealed class WindowsLicenseService : IWindowsLicenseService
         {
             AddSource(info, source + " - ERROR: " + ex.Message);
         }
+    }
+
+    private static void CollectFirmwareMsdm(WindowsLicenseInfo info, bool includeSensitive)
+    {
+        const string source = "ACPI:MSDM";
+        var (found, msdmKey, rawDump, error) = FirmwareMsdmReader.TryReadOa3Key();
+
+        if (found)
+        {
+            info.Oa3MsdmRawDumpBase64 = includeSensitive ? rawDump ?? string.Empty : string.Empty;
+            info.Oa3MsdmKeyMasked = Mask(msdmKey);
+
+            if (includeSensitive)
+            {
+                info.Oa3MsdmKey = msdmKey;
+            }
+            else
+            {
+                info.Oa3MsdmKey = null;
+            }
+
+            AddSource(info, source);
+            return;
+        }
+
+        info.Oa3MsdmRawDumpBase64 = string.Empty;
+        info.Oa3MsdmKeyMasked = string.Empty;
+        info.Oa3MsdmKey = includeSensitive ? string.Empty : null;
+
+        var suffix = error is null ? "NotFound" : $"Error:{error}";
+        AddSource(info, $"{source}:{suffix}");
     }
 
     private static void CollectSoftwareProtectionPlatform(WindowsLicenseInfo info, bool includeSensitive)
@@ -136,6 +168,22 @@ public sealed class WindowsLicenseService : IWindowsLicenseService
                 info.DecodedProductKey = "Hidden (confirmation required)";
             }
         }
+    }
+
+    private static string Mask(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key) || key.Length < 29)
+        {
+            return key ?? string.Empty;
+        }
+
+        var parts = key.Split('-');
+        if (parts.Length != 5)
+        {
+            return key;
+        }
+
+        return $"{parts[0]}-*****-*****-*****-{parts[4]}";
     }
 
     private static void CollectSoftwareLicensingProduct(WindowsLicenseInfo info)
