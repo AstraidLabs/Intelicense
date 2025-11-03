@@ -26,6 +26,15 @@ public partial class WindowsLicenseInfo : ObservableObject
     private string? partialProductKey;
 
     [ObservableProperty]
+    private string? oa3MsdmKey;
+
+    [ObservableProperty]
+    private string? oa3MsdmKeyMasked;
+
+    [ObservableProperty]
+    private string? oa3MsdmRawDumpBase64;
+
+    [ObservableProperty]
     private string? oa3OriginalProductKey;
 
     [ObservableProperty]
@@ -48,9 +57,12 @@ public partial class WindowsLicenseInfo : ObservableObject
         get
         {
             static bool HasValue(string? value) => !string.IsNullOrWhiteSpace(value) && !value.StartsWith("Hidden", StringComparison.OrdinalIgnoreCase);
-            return HasValue(Oa3OriginalProductKey) || HasValue(DecodedProductKey);
+            return HasValue(Oa3MsdmKey) || HasValue(Oa3OriginalProductKey) || HasValue(DecodedProductKey);
         }
     }
+
+    [JsonIgnore]
+    public string Oa3MsdmDisplayKey => !string.IsNullOrWhiteSpace(Oa3MsdmKey) ? Oa3MsdmKey! : Oa3MsdmKeyMasked ?? string.Empty;
 
     public void Reset()
     {
@@ -60,6 +72,9 @@ public partial class WindowsLicenseInfo : ObservableObject
         CurrentBuild = string.Empty;
         InstallationType = string.Empty;
         PartialProductKey = string.Empty;
+        Oa3MsdmKey = string.Empty;
+        Oa3MsdmKeyMasked = string.Empty;
+        Oa3MsdmRawDumpBase64 = string.Empty;
         Oa3OriginalProductKey = string.Empty;
         DecodedProductKey = string.Empty;
         ProductTypeCode = null;
@@ -67,4 +82,8 @@ public partial class WindowsLicenseInfo : ObservableObject
         LicenseStatus = string.Empty;
         RetrievalSources.Clear();
     }
+
+    partial void OnOa3MsdmKeyChanged(string? value) => OnPropertyChanged(nameof(Oa3MsdmDisplayKey));
+
+    partial void OnOa3MsdmKeyMaskedChanged(string? value) => OnPropertyChanged(nameof(Oa3MsdmDisplayKey));
 }
