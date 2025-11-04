@@ -91,16 +91,16 @@ public sealed class WindowsLicenseService : IWindowsLicenseService
     private static void CollectFirmwareMsdm(WindowsLicenseInfo info, bool includeSensitive)
     {
         const string source = "ACPI:MSDM";
-        var (found, msdmKey, rawDump, error) = FirmwareMsdmReader.TryReadOa3Key();
+        var msdm = FirmwareMsdmReader.TryRead();
 
-        if (found)
+        if (msdm.Found)
         {
-            info.Oa3MsdmRawDumpBase64 = includeSensitive ? rawDump ?? string.Empty : string.Empty;
-            info.Oa3MsdmKeyMasked = Mask(msdmKey);
+            info.Oa3MsdmRawDumpBase64 = includeSensitive ? msdm.RawBase64 : string.Empty;
+            info.Oa3MsdmKeyMasked = Mask(msdm.Key);
 
             if (includeSensitive)
             {
-                info.Oa3MsdmKey = msdmKey;
+                info.Oa3MsdmKey = msdm.Key;
             }
             else
             {
@@ -115,7 +115,7 @@ public sealed class WindowsLicenseService : IWindowsLicenseService
         info.Oa3MsdmKeyMasked = string.Empty;
         info.Oa3MsdmKey = includeSensitive ? string.Empty : null;
 
-        var suffix = error is null ? "NotFound" : $"Error:{error}";
+        var suffix = string.IsNullOrWhiteSpace(msdm.Error) ? "NotFound" : $"Error:{msdm.Error}";
         AddSource(info, $"{source}:{suffix}");
     }
 
