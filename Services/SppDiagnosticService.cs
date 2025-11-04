@@ -427,13 +427,11 @@ public static class SppDiagnosticService
 
     private static void ExtractServiceProperty(SppDiagnosticPackage package, ManagementObject obj, string property, Action<object> handler)
     {
-        if (!obj.Properties.Contains(property))
-        {
-            return;
-        }
+        var propertyData = obj.Properties
+            .Cast<PropertyData>()
+            .FirstOrDefault(p => string.Equals(p.Name, property, StringComparison.Ordinal));
 
-        var value = obj[property];
-        if (value is null)
+        if (propertyData?.Value is not { } value)
         {
             return;
         }
