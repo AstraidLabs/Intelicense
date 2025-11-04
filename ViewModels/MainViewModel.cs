@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -102,6 +104,8 @@ public partial class MainViewModel : ObservableObject
             IsBusy = true;
             StatusMessage = "Collecting license information...";
             var info = await _licenseService.GatherLicenseInfoAsync(includeSensitive, UsePowerShellFallback, _cancellationTokenSource.Token);
+            var diagnostics = await SppDiagnosticService.CollectAsync(includeSensitive, UsePowerShellFallback);
+            ApplyDiagnostics(info, diagnostics, includeSensitive);
             LicenseInfo = info;
             StatusMessage = "License information updated.";
         }
@@ -119,7 +123,113 @@ public partial class MainViewModel : ObservableObject
             IsBusy = false;
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;
+}
+
+    private static void ApplyDiagnostics(WindowsLicenseInfo info, SppDiagnosticService.SppDiagnosticPackage diagnostics, bool includeSensitive)
+    {
+        if (diagnostics is null)
+        {
+            return;
         }
+
+        info.Oa3MsdmKey = includeSensitive ? diagnostics.Oa3Key : null;
+        if (!string.IsNullOrWhiteSpace(diagnostics.Oa3KeyMasked))
+        {
+            info.Oa3MsdmKeyMasked = diagnostics.Oa3KeyMasked;
+        }
+
+        info.DecodedRegistryKey = includeSensitive ? diagnostics.DecodedKey : null;
+
+        if (!string.IsNullOrWhiteSpace(diagnostics.PartialProductKey))
+        {
+            info.PartialProductKey = diagnostics.PartialProductKey;
+        }
+
+        info.LicenseStatusCode = diagnostics.LicenseStatusCode;
+
+        if (!string.IsNullOrWhiteSpace(diagnostics.LicenseStatusText))
+        {
+            info.LicenseStatusText = diagnostics.LicenseStatusText;
+            if (string.IsNullOrWhiteSpace(info.LicenseStatus))
+            {
+                info.LicenseStatus = diagnostics.LicenseStatusText;
+            }
+        }
+
+        if (diagnostics.ProductTypeCode.HasValue)
+        {
+            info.ProductTypeCode = diagnostics.ProductTypeCode;
+        }
+
+        if (!string.IsNullOrWhiteSpace(diagnostics.ProductTypeText))
+        {
+            info.ProductTypeText = diagnostics.ProductTypeText;
+            if (string.IsNullOrWhiteSpace(info.MappedProductType))
+            {
+                info.MappedProductType = diagnostics.ProductTypeText;
+            }
+        }
+
+        info.Sources = MergeDistinct(info.Sources, diagnostics.Sources);
+        info.Notes = AppendNotes(info.Notes, diagnostics.Notes);
+    }
+
+    private static List<string>? MergeDistinct(List<string>? existing, IReadOnlyCollection<string> additions)
+    {
+        if (additions is null || additions.Count == 0)
+        {
+            return existing;
+        }
+
+        var comparer = StringComparer.OrdinalIgnoreCase;
+        var result = existing is null ? new List<string>() : new List<string>(existing);
+
+        foreach (var entry in additions)
+        {
+            if (string.IsNullOrWhiteSpace(entry))
+            {
+                continue;
+            }
+
+            if (!result.Any(existingEntry => comparer.Equals(existingEntry, entry)))
+            {
+                result.Add(entry);
+            }
+        }
+
+        return result.Count == 0 ? null : result;
+    }
+
+    private static string? AppendNotes(string? existing, IReadOnlyCollection<string> additions)
+    {
+        if (additions is null || additions.Count == 0)
+        {
+            return existing;
+        }
+
+        var builder = new StringBuilder();
+
+        if (!string.IsNullOrWhiteSpace(existing))
+        {
+            builder.Append(existing.TrimEnd());
+        }
+
+        foreach (var note in additions)
+        {
+            if (string.IsNullOrWhiteSpace(note))
+            {
+                continue;
+            }
+
+            if (builder.Length > 0)
+            {
+                builder.AppendLine();
+            }
+
+            builder.Append(note);
+        }
+
+        return builder.Length == 0 ? existing : builder.ToString();
     }
 
     [RelayCommand(CanExecute = nameof(CanExecuteOperations))]

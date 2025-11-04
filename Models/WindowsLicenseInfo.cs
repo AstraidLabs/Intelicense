@@ -40,16 +40,40 @@ public partial class WindowsLicenseInfo : ObservableObject
     [ObservableProperty]
     private string? decodedProductKey;
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [ObservableProperty]
+    private string? decodedRegistryKey;
+
     [ObservableProperty]
     private uint? productTypeCode;
 
     [ObservableProperty]
     private string? mappedProductType;
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [ObservableProperty]
+    private string? productTypeText;
+
     [ObservableProperty]
     private string? licenseStatus;
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [ObservableProperty]
+    private int? licenseStatusCode;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [ObservableProperty]
+    private string? licenseStatusText;
+
     public List<string> RetrievalSources { get; } = new();
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [ObservableProperty]
+    private List<string>? sources;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [ObservableProperty]
+    private string? notes;
 
     [JsonIgnore]
     public bool ContainsSensitiveData
@@ -57,7 +81,7 @@ public partial class WindowsLicenseInfo : ObservableObject
         get
         {
             static bool HasValue(string? value) => !string.IsNullOrWhiteSpace(value) && !value.StartsWith("Hidden", StringComparison.OrdinalIgnoreCase);
-            return HasValue(Oa3MsdmKey) || HasValue(Oa3OriginalProductKey) || HasValue(DecodedProductKey);
+            return HasValue(Oa3MsdmKey) || HasValue(Oa3OriginalProductKey) || HasValue(DecodedProductKey) || HasValue(DecodedRegistryKey);
         }
     }
 
@@ -77,10 +101,16 @@ public partial class WindowsLicenseInfo : ObservableObject
         Oa3MsdmRawDumpBase64 = string.Empty;
         Oa3OriginalProductKey = string.Empty;
         DecodedProductKey = string.Empty;
+        DecodedRegistryKey = null;
         ProductTypeCode = null;
         MappedProductType = string.Empty;
+        ProductTypeText = null;
         LicenseStatus = string.Empty;
+        LicenseStatusCode = null;
+        LicenseStatusText = null;
         RetrievalSources.Clear();
+        Sources = null;
+        Notes = null;
     }
 
     partial void OnOa3MsdmKeyChanged(string? value) => OnPropertyChanged(nameof(Oa3MsdmDisplayKey));

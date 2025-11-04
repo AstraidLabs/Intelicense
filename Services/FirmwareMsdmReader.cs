@@ -10,71 +10,87 @@ public static class FirmwareMsdmReader
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern uint GetSystemFirmwareTable(uint provider, uint tableId, IntPtr pBuffer, uint size);
 
-    private static uint Sig(string s)
-    {
-        var b = Encoding.ASCII.GetBytes(s);
-        if (b.Length != 4)
-        {
-            throw new ArgumentException("Signature must be 4 chars", nameof(s));
-        }
+    public readonly record struct MsdmResult(bool Found, string Key, string RawBase64, string Error);
 
-        return BitConverter.ToUInt32(b, 0);
-    }
-
-    public static (bool found, string? key, string? rawDumpBase64, string? error) TryReadOa3Key()
+    public static MsdmResult TryRead()
     {
         try
         {
-            uint acpi = Sig("ACPI");
-            uint msdm = Sig("MSDM");
+            const string providerSignature = "ACPI";
+            const string tableSignature = "MSDM";
+            uint provider = Sig(providerSignature);
+            uint table = Sig(tableSignature);
 
-            uint size = GetSystemFirmwareTable(acpi, msdm, IntPtr.Zero, 0);
+            uint size = GetSystemFirmwareTable(provider, table, IntPtr.Zero, 0);
             if (size == 0)
             {
-                return (false, null, null, "MSDM table not present");
+                return new MsdmResult(false, string.Empty, string.Empty, "MSDM table not present");
             }
 
-            IntPtr buf = IntPtr.Zero;
+            IntPtr buffer = IntPtr.Zero;
             try
             {
-                buf = Marshal.AllocHGlobal((int)size);
-                uint read = GetSystemFirmwareTable(acpi, msdm, buf, size);
+                buffer = Marshal.AllocHGlobal((int)size);
+                uint read = GetSystemFirmwareTable(provider, table, buffer, size);
                 if (read == 0 || read != size)
                 {
-                    return (false, null, null, "MSDM read failed");
+                    return new MsdmResult(false, string.Empty, string.Empty, "MSDM table read failed");
                 }
 
                 byte[] data = new byte[size];
-                Marshal.Copy(buf, data, 0, (int)size);
+                Marshal.Copy(buffer, data, 0, (int)size);
 
-                string ascii = Encoding.ASCII.GetString(data);
-                var m = Regex.Match(ascii, @"[A-Z0-9]{5}(?:-[A-Z0-9]{5}){4}", RegexOptions.IgnoreCase);
-                if (!m.Success)
+                string? key = ExtractKey(data);
+                string base64 = data.Length > 0 ? Convert.ToBase64String(data) : string.Empty;
+
+                if (string.IsNullOrWhiteSpace(key))
                 {
-                    var sb = new StringBuilder(data.Length);
-                    foreach (var b in data)
-                    {
-                        sb.Append(b >= 32 && b <= 126 ? (char)b : ' ');
-                    }
-
-                    m = Regex.Match(sb.ToString(), @"[A-Z0-9]{5}(?:-[A-Z0-9]{5}){4}", RegexOptions.IgnoreCase);
+                    return new MsdmResult(false, string.Empty, base64, "Product key not found in MSDM payload");
                 }
 
-                string? key = m.Success ? m.Value.ToUpperInvariant() : null;
-                string dump = Convert.ToBase64String(data);
-                return (key is not null, key, dump, key is null ? "Key not found in MSDM payload" : null);
+                return new MsdmResult(true, key, base64, string.Empty);
             }
             finally
             {
-                if (buf != IntPtr.Zero)
+                if (buffer != IntPtr.Zero)
                 {
-                    Marshal.FreeHGlobal(buf);
+                    Marshal.FreeHGlobal(buffer);
                 }
             }
         }
         catch (Exception ex)
         {
-            return (false, null, null, ex.Message);
+            return new MsdmResult(false, string.Empty, string.Empty, ex.Message);
         }
+    }
+
+    private static uint Sig(string signature)
+    {
+        byte[] bytes = Encoding.ASCII.GetBytes(signature);
+        if (bytes.Length != 4)
+        {
+            throw new ArgumentException("Signature must contain exactly 4 ASCII characters", nameof(signature));
+        }
+
+        return BitConverter.ToUInt32(bytes, 0);
+    }
+
+    private static string? ExtractKey(byte[] data)
+    {
+        string ascii = Encoding.ASCII.GetString(data);
+        var match = Regex.Match(ascii, "[A-Z0-9]{5}(?:-[A-Z0-9]{5}){4}", RegexOptions.IgnoreCase);
+        if (match.Success)
+        {
+            return match.Value.ToUpperInvariant();
+        }
+
+        var builder = new StringBuilder(data.Length);
+        foreach (byte b in data)
+        {
+            builder.Append(b >= 32 && b <= 126 ? (char)b : ' ');
+        }
+
+        match = Regex.Match(builder.ToString(), "[A-Z0-9]{5}(?:-[A-Z0-9]{5}){4}", RegexOptions.IgnoreCase);
+        return match.Success ? match.Value.ToUpperInvariant() : null;
     }
 }
