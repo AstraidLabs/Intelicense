@@ -123,8 +123,8 @@ public partial class MainViewModel : ObservableObject
             IsBusy = false;
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;
+        }
 }
-
     private static void ApplyDiagnostics(WindowsLicenseInfo info, SppDiagnosticService.SppDiagnosticPackage diagnostics, bool includeSensitive)
     {
         if (diagnostics is null)
