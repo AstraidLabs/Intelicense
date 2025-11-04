@@ -172,6 +172,41 @@ public partial class MainViewModel : ObservableObject
 
         info.Sources = MergeDistinct(info.Sources, diagnostics.Sources);
         info.Notes = AppendNotes(info.Notes, diagnostics.Notes);
+
+        static SppLicenseEntry CloneEntry(SppLicenseEntry source)
+        {
+            return new SppLicenseEntry
+            {
+                Name = source.Name,
+                Description = source.Description,
+                ActivationId = source.ActivationId,
+                ProductKeyChannel = source.ProductKeyChannel,
+                PartialProductKey = source.PartialProductKey,
+                ExtendedProductId = source.ExtendedProductId,
+                ProductId = source.ProductId,
+                OfflineInstallationId = source.OfflineInstallationId,
+                LicenseStatus = source.LicenseStatus,
+                LicenseMessage = source.LicenseMessage,
+                LicenseStatusCode = source.LicenseStatusCode,
+                NormalizedStatusCode = source.NormalizedStatusCode,
+                ReasonHResult = source.ReasonHResult,
+                GraceTimeMinutes = source.GraceTimeMinutes,
+                GraceTimeDays = source.GraceTimeDays,
+                GraceExpiry = source.GraceExpiry,
+                EvaluationExpiryUtc = source.EvaluationExpiryUtc,
+                PhoneActivationAvailable = source.PhoneActivationAvailable,
+                IsAddon = source.IsAddon,
+                Notes = source.Notes is { Count: > 0 } notes ? new List<string>(notes) : new List<string>()
+            };
+        }
+
+        info.WindowsLicenses = diagnostics.WindowsLicenses.Count > 0
+            ? diagnostics.WindowsLicenses.Select(CloneEntry).ToList()
+            : null;
+
+        info.OfficeLicenses = diagnostics.OfficeLicenses.Count > 0
+            ? diagnostics.OfficeLicenses.Select(CloneEntry).ToList()
+            : null;
     }
 
     private static List<string>? MergeDistinct(List<string>? existing, IReadOnlyCollection<string> additions)
@@ -291,6 +326,101 @@ public partial class MainViewModel : ObservableObject
         foreach (var source in LicenseInfo.RetrievalSources)
         {
             builder.AppendLine(" - " + source);
+        }
+
+        static void AppendLicenseEntries(StringBuilder sb, string heading, IReadOnlyCollection<SppLicenseEntry> entries)
+        {
+            if (entries.Count == 0)
+            {
+                return;
+            }
+
+            sb.AppendLine();
+            sb.AppendLine(heading);
+
+            foreach (var entry in entries)
+            {
+                sb.AppendLine($" - {(string.IsNullOrWhiteSpace(entry.Name) ? "Unnamed" : entry.Name)}");
+                sb.AppendLine($"   Activation ID: {entry.ActivationId}");
+
+                if (!string.IsNullOrWhiteSpace(entry.Description))
+                {
+                    sb.AppendLine($"   Description: {entry.Description}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(entry.LicenseStatus))
+                {
+                    sb.AppendLine($"   Status: {entry.LicenseStatus}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(entry.LicenseMessage))
+                {
+                    sb.AppendLine($"   Details: {entry.LicenseMessage}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(entry.ProductKeyChannel))
+                {
+                    sb.AppendLine($"   Channel: {entry.ProductKeyChannel}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(entry.PartialProductKey))
+                {
+                    sb.AppendLine($"   Partial key: {entry.PartialProductKey}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(entry.ExtendedProductId))
+                {
+                    sb.AppendLine($"   Extended PID: {entry.ExtendedProductId}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(entry.ProductId))
+                {
+                    sb.AppendLine($"   Product ID: {entry.ProductId}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(entry.OfflineInstallationId))
+                {
+                    sb.AppendLine($"   Installation ID: {entry.OfflineInstallationId}");
+                }
+
+                if (entry.PhoneActivationAvailable.HasValue)
+                {
+                    sb.AppendLine($"   Phone activation available: {entry.PhoneActivationAvailable.Value}");
+                }
+
+                if (entry.GraceExpiry.HasValue)
+                {
+                    sb.AppendLine($"   Grace expires: {entry.GraceExpiry:yyyy-MM-dd HH:mm:ss zzz}");
+                }
+
+                if (entry.EvaluationExpiryUtc.HasValue)
+                {
+                    sb.AppendLine($"   Evaluation expiry (UTC): {entry.EvaluationExpiryUtc:yyyy-MM-dd HH:mm:ss}");
+                }
+
+                if (entry.Notes.Count > 0)
+                {
+                    foreach (var note in entry.Notes)
+                    {
+                        if (!string.IsNullOrWhiteSpace(note))
+                        {
+                            sb.AppendLine($"   Note: {note}");
+                        }
+                    }
+                }
+
+                sb.AppendLine();
+            }
+        }
+
+        if (LicenseInfo.WindowsLicenses is { Count: > 0 } windows)
+        {
+            AppendLicenseEntries(builder, "Windows Licenses:", windows);
+        }
+
+        if (LicenseInfo.OfficeLicenses is { Count: > 0 } office)
+        {
+            AppendLicenseEntries(builder, "Office Licenses:", office);
         }
 
         await _clipboardService.CopyTextAsync(builder.ToString());

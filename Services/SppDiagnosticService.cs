@@ -2,16 +2,21 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Management;
+using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using System.Text;
 using System.Threading.Tasks;
-using System.Runtime.InteropServices;
+using Intelicense.Models;
 using Microsoft.Win32;
 
 namespace Intelicense.Services;
 
 public static class SppDiagnosticService
 {
+    private static readonly Guid WindowsApplicationId = new("55C92734-D682-4D71-983E-D6EC3F16059F");
+    private static readonly Guid Office15ApplicationId = new("0FF1CE15-A989-479D-AF46-F275C6370663");
+    private static readonly Guid Office14ApplicationId = new("59A52881-A989-479D-AF46-F275C6370663");
+
     private static readonly IReadOnlyDictionary<uint, string> ProductTypeDescriptions = new Dictionary<uint, string>
     {
         { 0x00000006, "Business" },
@@ -56,6 +61,8 @@ public static class SppDiagnosticService
         public string? ProductTypeText { get; set; }
         public List<string> Sources { get; } = new();
         public List<string> Notes { get; } = new();
+        public List<SppLicenseEntry> WindowsLicenses { get; } = new();
+        public List<SppLicenseEntry> OfficeLicenses { get; } = new();
     }
 
     public static Task<SppDiagnosticPackage> CollectAsync(bool allowSensitiveData, bool allowPowerShellFallback)
@@ -75,6 +82,7 @@ public static class SppDiagnosticService
         CollectServiceStates(package);
         CollectSlApiData(package, allowSensitiveData);
         CollectProductInfo(package);
+        CollectSppLicenseEntries(package, allowSensitiveData);
 
         if (!allowPowerShellFallback)
         {
@@ -391,6 +399,320 @@ public static class SppDiagnosticService
             AppendNote(package, $"GetProductInfo exception: {ex.Message}");
         }
     }
+
+    private static void CollectSppLicenseEntries(SppDiagnosticPackage package, bool allowSensitive)
+    {
+        CollectLicensesForApplication(package, allowSensitive, WindowsApplicationId, package.WindowsLicenses, "Windows");
+
+        var officeCountBefore = package.OfficeLicenses.Count;
+        CollectLicensesForApplication(package, allowSensitive, Office15ApplicationId, package.OfficeLicenses, "Office15");
+        CollectLicensesForApplication(package, allowSensitive, Office14ApplicationId, package.OfficeLicenses, "Office14");
+
+        if (package.OfficeLicenses.Count == officeCountBefore)
+        {
+            AppendNote(package, "No Office licenses were returned by the Software Protection Platform APIs.");
+        }
+
+        if (package.WindowsLicenses.Count == 0)
+        {
+            AppendNote(package, "No Windows licenses were returned by the Software Protection Platform APIs.");
+        }
+    }
+
+    private static void CollectLicensesForApplication(
+        SppDiagnosticPackage package,
+        bool allowSensitive,
+        Guid applicationId,
+        List<SppLicenseEntry> target,
+        string tag)
+    {
+        var listResult = SppManagerInterop.TryGetSlidList(SppManagerInterop.SlidType.Application, applicationId, SppManagerInterop.SlidType.ProductSku);
+        if (!listResult.Success)
+        {
+            AddSource(package, $"SL:SLGetSLIDList:{tag}:Error");
+            if (!string.IsNullOrWhiteSpace(listResult.ErrorMessage))
+            {
+                AppendNote(package, $"SLGetSLIDList for {tag} failed: {listResult.ErrorMessage}");
+            }
+            return;
+        }
+
+        if (listResult.Ids.Count == 0)
+        {
+            return;
+        }
+
+        AddSource(package, $"SL:SLGetSLIDList:{tag}");
+
+        var statusResult = SppManagerInterop.TryGetLicensingStatusInformation(applicationId, null);
+        var statusMap = new Dictionary<Guid, SppManagerInterop.SlLicensingStatusEntry>();
+        if (statusResult.Success)
+        {
+            foreach (var statusEntry in statusResult.Entries)
+            {
+                statusMap[statusEntry.SkuId] = statusEntry;
+            }
+
+            if (statusResult.Entries.Count > 0)
+            {
+                AddSource(package, $"SL:SLGetLicensingStatusInformation:{tag}");
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(statusResult.ErrorMessage))
+        {
+            AddSource(package, $"SL:SLGetLicensingStatusInformation:{tag}:Error");
+            AppendNote(package, $"SL licensing status for {tag} failed: {statusResult.ErrorMessage}");
+        }
+
+        int initialCount = target.Count;
+        foreach (var skuId in listResult.Ids)
+        {
+            var licenseEntry = BuildSppLicenseEntry(allowSensitive, skuId, statusMap, tag);
+            if (licenseEntry is not null)
+            {
+                target.Add(licenseEntry);
+            }
+        }
+
+        if (target.Count == initialCount)
+        {
+            AppendNote(package, $"No {tag} licenses contained retrievable product key information.");
+        }
+    }
+
+    private static SppLicenseEntry? BuildSppLicenseEntry(
+        bool allowSensitive,
+        Guid skuId,
+        IReadOnlyDictionary<Guid, SppManagerInterop.SlLicensingStatusEntry> statusMap,
+        string tag)
+    {
+        var entry = new SppLicenseEntry
+        {
+            ActivationId = skuId
+        };
+
+        var nameResult = SppManagerInterop.TryGetProductSkuInformation(skuId, "Name");
+        if (nameResult.Success && nameResult.HasString)
+        {
+            entry.Name = nameResult.StringValue;
+        }
+        else if (!nameResult.Success && !string.IsNullOrWhiteSpace(nameResult.ErrorMessage))
+        {
+            entry.Notes.Add($"Name unavailable ({nameResult.ErrorMessage}).");
+        }
+
+        var descriptionResult = SppManagerInterop.TryGetProductSkuInformation(skuId, "Description");
+        if (descriptionResult.Success && descriptionResult.HasString)
+        {
+            entry.Description = descriptionResult.StringValue;
+        }
+        else if (!descriptionResult.Success && !string.IsNullOrWhiteSpace(descriptionResult.ErrorMessage))
+        {
+            entry.Notes.Add($"Description unavailable ({descriptionResult.ErrorMessage}).");
+        }
+
+        var dependsResult = SppManagerInterop.TryGetProductSkuInformation(skuId, "DependsOn");
+        if (dependsResult.Success && dependsResult.HasString)
+        {
+            entry.IsAddon = !string.IsNullOrWhiteSpace(dependsResult.StringValue);
+        }
+
+        var phoneResult = SppManagerInterop.TryGetProductSkuInformation(skuId, "msft:sl/EUL/PHONE/PUBLIC");
+        if (phoneResult.Success)
+        {
+            entry.PhoneActivationAvailable = !string.IsNullOrWhiteSpace(phoneResult.StringValue);
+        }
+        else if (!string.IsNullOrWhiteSpace(phoneResult.ErrorMessage))
+        {
+            entry.Notes.Add($"Phone activation query failed ({phoneResult.ErrorMessage}).");
+        }
+
+        Guid? productKeyId = null;
+        var pkeyResult = SppManagerInterop.TryGetProductSkuInformation(skuId, "PKeyId");
+        if (pkeyResult.Success && pkeyResult.HasString && Guid.TryParse(pkeyResult.StringValue, out var parsed))
+        {
+            productKeyId = parsed;
+        }
+        else if (!pkeyResult.Success && !string.IsNullOrWhiteSpace(pkeyResult.ErrorMessage))
+        {
+            entry.Notes.Add($"Product key identifier unavailable ({pkeyResult.ErrorMessage}).");
+        }
+
+        if (productKeyId.HasValue)
+        {
+            var partialResult = SppManagerInterop.TryGetPKeyInformation(productKeyId.Value, "PartialProductKey");
+            if (partialResult.Success && partialResult.HasString)
+            {
+                entry.PartialProductKey = partialResult.StringValue;
+            }
+            else if (!partialResult.Success && !string.IsNullOrWhiteSpace(partialResult.ErrorMessage))
+            {
+                entry.Notes.Add($"Partial product key unavailable ({partialResult.ErrorMessage}).");
+            }
+
+            var channelResult = SppManagerInterop.TryGetPKeyInformation(productKeyId.Value, "Channel");
+            if (channelResult.Success && channelResult.HasString)
+            {
+                entry.ProductKeyChannel = channelResult.StringValue;
+            }
+            else if (!channelResult.Success && !string.IsNullOrWhiteSpace(channelResult.ErrorMessage))
+            {
+                entry.Notes.Add($"Product key channel unavailable ({channelResult.ErrorMessage}).");
+            }
+
+            if (allowSensitive)
+            {
+                var extendedResult = SppManagerInterop.TryGetPKeyInformation(productKeyId.Value, "DigitalPID");
+                if (extendedResult.Success && extendedResult.HasString)
+                {
+                    entry.ExtendedProductId = extendedResult.StringValue;
+                }
+                else if (!extendedResult.Success && !string.IsNullOrWhiteSpace(extendedResult.ErrorMessage))
+                {
+                    entry.Notes.Add($"Extended PID unavailable ({extendedResult.ErrorMessage}).");
+                }
+
+                var productIdResult = SppManagerInterop.TryGetPKeyInformation(productKeyId.Value, "DigitalPID2");
+                if (productIdResult.Success && productIdResult.HasString)
+                {
+                    entry.ProductId = productIdResult.StringValue;
+                }
+                else if (!productIdResult.Success && !string.IsNullOrWhiteSpace(productIdResult.ErrorMessage))
+                {
+                    entry.Notes.Add($"Product ID unavailable ({productIdResult.ErrorMessage}).");
+                }
+            }
+            else
+            {
+                entry.Notes.Add("Extended and product identifiers are hidden because sensitive data export is disabled.");
+            }
+        }
+
+        if (allowSensitive)
+        {
+            var iidResult = SppManagerInterop.TryGenerateOfflineInstallationId(skuId);
+            if (iidResult.Success && iidResult.HasString)
+            {
+                entry.OfflineInstallationId = iidResult.StringValue;
+            }
+            else if (!iidResult.Success && !string.IsNullOrWhiteSpace(iidResult.ErrorMessage))
+            {
+                entry.Notes.Add($"Installation ID unavailable ({iidResult.ErrorMessage}).");
+            }
+        }
+        else
+        {
+            entry.Notes.Add("Installation ID generation skipped because sensitive data export is disabled.");
+        }
+
+        if (statusMap.TryGetValue(skuId, out var statusEntry))
+        {
+            PopulateStatus(entry, statusEntry);
+        }
+        else if (statusMap.Count > 0)
+        {
+            entry.LicenseStatus = "Unknown";
+            entry.Notes.Add("No licensing status entry was returned for this activation identifier.");
+        }
+
+        if (string.IsNullOrWhiteSpace(entry.Name) && string.IsNullOrWhiteSpace(entry.Description))
+        {
+            entry.Name = $"{tag} license {skuId}";
+        }
+
+        return entry;
+    }
+
+    private static void PopulateStatus(SppLicenseEntry entry, SppManagerInterop.SlLicensingStatusEntry statusEntry)
+    {
+        entry.LicenseStatusCode = (int)statusEntry.Status;
+        entry.ReasonHResult = statusEntry.ReasonHResult;
+        entry.GraceTimeMinutes = statusEntry.GraceTimeMinutes;
+
+        if (statusEntry.GraceTimeMinutes > 0)
+        {
+            entry.GraceTimeDays = (uint)Math.Max(0, Math.Round(statusEntry.GraceTimeMinutes / 1440d, MidpointRounding.AwayFromZero));
+            entry.GraceExpiry = DateTimeOffset.Now.AddMinutes(statusEntry.GraceTimeMinutes);
+        }
+
+        if (statusEntry.ValidityExpiration > 0 && statusEntry.ValidityExpiration < ulong.MaxValue)
+        {
+            try
+            {
+                entry.EvaluationExpiryUtc = DateTimeOffset.FromFileTime((long)statusEntry.ValidityExpiration);
+                entry.Notes.Add($"Evaluation end date: {entry.EvaluationExpiryUtc:yyyy-MM-dd HH:mm:ss} UTC.");
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                entry.Notes.Add($"Evaluation end date returned unexpected value ({statusEntry.ValidityExpiration}).");
+            }
+        }
+
+        int normalized = NormalizeStatus((int)statusEntry.Status, statusEntry.ReasonHResult);
+        entry.NormalizedStatusCode = normalized;
+
+        entry.LicenseStatus = normalized switch
+        {
+            0 => "Unlicensed",
+            1 => "Licensed",
+            2 => "Initial grace period",
+            3 => "Additional grace period",
+            4 => "Non-genuine grace period",
+            5 => "Notification",
+            6 => "Extended grace period",
+            _ => $"Unknown ({statusEntry.Status})",
+        };
+
+        if (statusEntry.GraceTimeMinutes > 0)
+        {
+            var days = entry.GraceTimeDays ?? 0;
+            var graceText = $"{statusEntry.GraceTimeMinutes} minute(s) ({days} day(s))";
+            entry.LicenseMessage = normalized == 1
+                ? $"Activation expiration: {graceText}"
+                : $"Time remaining: {graceText}";
+
+            if (entry.GraceExpiry.HasValue)
+            {
+                entry.Notes.Add($"Grace period ends {entry.GraceExpiry:yyyy-MM-dd HH:mm:ss zzz}.");
+            }
+        }
+
+        if (normalized == 5 && statusEntry.ReasonHResult != 0)
+        {
+            entry.Notes.Add($"Notification reason: {FormatHResult(statusEntry.ReasonHResult)}.");
+            switch (statusEntry.ReasonHResult)
+            {
+                case unchecked((int)0xC004F00F):
+                    entry.Notes.Add("KMS license expired or hardware out of tolerance.");
+                    break;
+                case unchecked((int)0xC004F200):
+                    entry.Notes.Add("License reported as non-genuine.");
+                    break;
+                case unchecked((int)0xC004F009):
+                case unchecked((int)0xC004F064):
+                    entry.Notes.Add("Grace time expired.");
+                    break;
+            }
+        }
+        else if (normalized == 4 && statusEntry.ReasonHResult != 0)
+        {
+            entry.Notes.Add($"Non-genuine reason: {FormatHResult(statusEntry.ReasonHResult)}.");
+        }
+    }
+
+    private static int NormalizeStatus(int status, int reason)
+    {
+        return status switch
+        {
+            2 when reason == 0x4004F00D => 3,
+            2 when reason == 0x4004F065 => 4,
+            2 when reason == 0x4004FC06 => 6,
+            3 => 5,
+            _ => status,
+        };
+    }
+
+    private static string FormatHResult(int value) => $"0x{value:X8}";
 
     private static void QueryService(SppDiagnosticPackage package, string serviceName)
     {
