@@ -1,8 +1,7 @@
 using System;
 using System.Collections;
-using System.Globalization;
-using System.Windows;
-using System.Windows.Data;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Data;
 
 namespace Intelicense.Converters;
 
@@ -10,7 +9,7 @@ public sealed class NullOrEmptyToVisibilityConverter : IValueConverter
 {
     public bool Invert { get; set; }
 
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public object Convert(object value, Type targetType, object parameter, string language)
     {
         var hasContent = value switch
         {
@@ -29,5 +28,5 @@ public sealed class NullOrEmptyToVisibilityConverter : IValueConverter
         return hasContent ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+    public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
