@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Text.Json.Serialization;
 
@@ -65,6 +66,14 @@ public partial class WindowsLicenseInfo : ObservableObject
     [ObservableProperty]
     private string? licenseStatusText;
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [ObservableProperty]
+    private List<SppLicenseEntry>? windowsLicenses;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [ObservableProperty]
+    private List<SppLicenseEntry>? officeLicenses;
+
     public List<string> RetrievalSources { get; } = new();
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -81,7 +90,22 @@ public partial class WindowsLicenseInfo : ObservableObject
         get
         {
             static bool HasValue(string? value) => !string.IsNullOrWhiteSpace(value) && !value.StartsWith("Hidden", StringComparison.OrdinalIgnoreCase);
-            return HasValue(Oa3MsdmKey) || HasValue(Oa3OriginalProductKey) || HasValue(DecodedProductKey) || HasValue(DecodedRegistryKey);
+            if (HasValue(Oa3MsdmKey) || HasValue(Oa3OriginalProductKey) || HasValue(DecodedProductKey) || HasValue(DecodedRegistryKey))
+            {
+                return true;
+            }
+
+            if (WindowsLicenses is { Count: > 0 } windows && windows.Any(entry => entry?.ContainsSensitiveData == true))
+            {
+                return true;
+            }
+
+            if (OfficeLicenses is { Count: > 0 } office && office.Any(entry => entry?.ContainsSensitiveData == true))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 
@@ -108,6 +132,8 @@ public partial class WindowsLicenseInfo : ObservableObject
         LicenseStatus = string.Empty;
         LicenseStatusCode = null;
         LicenseStatusText = null;
+        WindowsLicenses = null;
+        OfficeLicenses = null;
         RetrievalSources.Clear();
         Sources = null;
         Notes = null;

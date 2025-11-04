@@ -327,6 +327,47 @@ public static class SppManagerInterop
         }
     }
 
+    public static SppValueResult TryGenerateOfflineInstallationId(Guid productSkuId)
+    {
+        if (!TryOpenContext(out var handle, out var hr, out var openError))
+        {
+            return new SppValueResult(false, null, null, null, null, hr, openError);
+        }
+
+        using (handle)
+        {
+            IntPtr buffer = IntPtr.Zero;
+            string? callError = null;
+
+            try
+            {
+                hr = handle.Library switch
+                {
+                    LibraryKind.Slc => NativeSlc.SLGenerateOfflineInstallationId(handle.DangerousGetHandle(), ref productSkuId, out buffer),
+                    LibraryKind.Sppc => NativeSppc.SLGenerateOfflineInstallationId(handle.DangerousGetHandle(), ref productSkuId, out buffer),
+                    _ => unchecked((int)0x80004005)
+                };
+
+                if (hr < 0)
+                {
+                    callError = FormatHResult(hr);
+                }
+            }
+            catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
+            {
+                callError = ex.Message;
+                hr = Marshal.GetHRForException(ex);
+            }
+            catch (Exception ex)
+            {
+                callError = ex.Message;
+                hr = Marshal.GetHRForException(ex);
+            }
+
+            return BuildValueResult(hr, SlDataType.Sz, 0, buffer, callError);
+        }
+    }
+
     public static SppSlidListResult TryGetSlidList(SlidType queryType, Guid? queryId, SlidType returnType)
     {
         if (!TryOpenContext(out var handle, out var hr, out var openError))
@@ -842,6 +883,9 @@ public static class SppManagerInterop
         internal static extern int SLGetSLIDList(IntPtr hSlc, SlidType queryType, IntPtr queryId, SlidType returnType, out uint returnIds, out IntPtr ids);
 
         [DllImport(LibraryName, CharSet = CharSet.Unicode)]
+        internal static extern int SLGenerateOfflineInstallationId(IntPtr hSlc, ref Guid productSkuId, out IntPtr installationId);
+
+        [DllImport(LibraryName, CharSet = CharSet.Unicode)]
         internal static extern int SLGetWindowsInformation(string valueName, out SlDataType dataType, out uint size, out IntPtr buffer);
 
         [DllImport(LibraryName, CharSet = CharSet.Unicode)]
@@ -875,6 +919,9 @@ public static class SppManagerInterop
 
         [DllImport(LibraryName)]
         internal static extern int SLGetSLIDList(IntPtr hSlc, SlidType queryType, IntPtr queryId, SlidType returnType, out uint returnIds, out IntPtr ids);
+
+        [DllImport(LibraryName, CharSet = CharSet.Unicode)]
+        internal static extern int SLGenerateOfflineInstallationId(IntPtr hSlc, ref Guid productSkuId, out IntPtr installationId);
 
         [DllImport(LibraryName, CharSet = CharSet.Unicode)]
         internal static extern int SLGetWindowsInformation(string valueName, out SlDataType dataType, out uint size, out IntPtr buffer);

@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="clr-namespace:Intelicense.Models"
     mc:Ignorable="d"
     Title="Intelicense">
 
@@ -40,6 +41,91 @@
                         <Setter Property="IsReadOnly" Value="True" />
                         <Setter Property="TextWrapping" Value="Wrap" />
                     </Style>
+                    <DataTemplate DataType="{x:Type models:SppLicenseEntry}">
+                        <Border
+                            Margin="0,0,0,8"
+                            Padding="8"
+                            BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
+                            BorderThickness="1"
+                            CornerRadius="4">
+                            <StackPanel>
+                                <TextBlock
+                                    FontWeight="Bold"
+                                    Text="{Binding Name, TargetNullValue=Unnamed license entry}" />
+                                <TextBlock
+                                    Margin="0,2,0,0"
+                                    TextWrapping="Wrap"
+                                    Text="{Binding Description}"
+                                    Visibility="{Binding Description, Converter={StaticResource NullOrEmptyToVisibilityConverter}}" />
+                                <TextBlock
+                                    Margin="0,6,0,0"
+                                    FontFamily="Consolas"
+                                    Text="{Binding ActivationId, StringFormat=Activation ID: {0}}" />
+                                <TextBlock
+                                    Margin="0,2,0,0"
+                                    Text="{Binding LicenseStatus, StringFormat=Status: {0}}"
+                                    Visibility="{Binding LicenseStatus, Converter={StaticResource NullOrEmptyToVisibilityConverter}}" />
+                                <TextBlock
+                                    Margin="0,2,0,0"
+                                    TextWrapping="Wrap"
+                                    Text="{Binding LicenseMessage}"
+                                    Visibility="{Binding LicenseMessage, Converter={StaticResource NullOrEmptyToVisibilityConverter}}" />
+                                <TextBlock
+                                    Margin="0,2,0,0"
+                                    Text="{Binding ProductKeyChannel, StringFormat=Channel: {0}}"
+                                    Visibility="{Binding ProductKeyChannel, Converter={StaticResource NullOrEmptyToVisibilityConverter}}" />
+                                <TextBlock
+                                    Margin="0,2,0,0"
+                                    Text="{Binding PartialProductKey, StringFormat=Partial key: {0}}"
+                                    Visibility="{Binding PartialProductKey, Converter={StaticResource NullOrEmptyToVisibilityConverter}}" />
+                                <TextBlock
+                                    Margin="0,2,0,0"
+                                    Text="{Binding ExtendedProductId, StringFormat=Extended PID: {0}}"
+                                    Visibility="{Binding ExtendedProductId, Converter={StaticResource NullOrEmptyToVisibilityConverter}}" />
+                                <TextBlock
+                                    Margin="0,2,0,0"
+                                    Text="{Binding ProductId, StringFormat=Product ID: {0}}"
+                                    Visibility="{Binding ProductId, Converter={StaticResource NullOrEmptyToVisibilityConverter}}" />
+                                <TextBlock
+                                    Margin="0,2,0,0"
+                                    Text="{Binding OfflineInstallationId, StringFormat=Installation ID: {0}}"
+                                    Visibility="{Binding OfflineInstallationId, Converter={StaticResource NullOrEmptyToVisibilityConverter}}" />
+                                <TextBlock Margin="0,2,0,0" Text="{Binding PhoneActivationAvailable, StringFormat=Phone activation available: {0}}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding PhoneActivationAvailable}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock
+                                    Margin="0,2,0,0"
+                                    Text="{Binding GraceExpiry, StringFormat=Grace expires: {0:yyyy-MM-dd HH:mm:ss zzz}}"
+                                    Visibility="{Binding GraceExpiry, Converter={StaticResource NullOrEmptyToVisibilityConverter}}" />
+                                <TextBlock
+                                    Margin="0,2,0,0"
+                                    Text="{Binding EvaluationExpiryUtc, StringFormat=Evaluation expiry (UTC): {0:yyyy-MM-dd HH:mm:ss}}"
+                                    Visibility="{Binding EvaluationExpiryUtc, Converter={StaticResource NullOrEmptyToVisibilityConverter}}" />
+                                <ItemsControl
+                                    Margin="0,4,0,0"
+                                    ItemsSource="{Binding Notes}"
+                                    Visibility="{Binding Notes, Converter={StaticResource NullOrEmptyToVisibilityConverter}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock
+                                                Margin="0,2,0,0"
+                                                TextWrapping="Wrap"
+                                                Text="{Binding}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
                 </StackPanel.Resources>
 
                 <TextBox Header="Product Name" Text="{Binding LicenseInfo.ProductName}" />
@@ -59,6 +145,44 @@
                     MinHeight="120"
                     AcceptsReturn="True"
                     Text="{Binding RetrievalSourcesDisplay}" />
+                <TextBox
+                    Header="Diagnostic Notes"
+                    MinHeight="120"
+                    AcceptsReturn="True"
+                    Text="{Binding LicenseInfo.Notes}"
+                    Visibility="{Binding LicenseInfo.Notes, Converter={StaticResource NullOrEmptyToVisibilityConverter}}" />
+                <GroupBox Header="Windows Licenses">
+                    <GroupBox.Style>
+                        <Style TargetType="GroupBox">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding LicenseInfo.WindowsLicenses}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding LicenseInfo.WindowsLicenses.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </GroupBox.Style>
+                    <ItemsControl ItemsSource="{Binding LicenseInfo.WindowsLicenses}" />
+                </GroupBox>
+                <GroupBox Header="Office Licenses">
+                    <GroupBox.Style>
+                        <Style TargetType="GroupBox">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding LicenseInfo.OfficeLicenses}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding LicenseInfo.OfficeLicenses.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </GroupBox.Style>
+                    <ItemsControl ItemsSource="{Binding LicenseInfo.OfficeLicenses}" />
+                </GroupBox>
             </StackPanel>
         </ScrollViewer>
 
